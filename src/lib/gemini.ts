@@ -17,6 +17,7 @@ export interface Feedback {
   content_score: number;
   structure_score: number;
   communication_score: number;
+  confidence_score: number;
   strengths: string[];
   improvements: { issue: string; suggestion: string }[];
   model_answer: string;
@@ -99,6 +100,7 @@ export const geminiService = {
             content_score: { type: Type.NUMBER },
             structure_score: { type: Type.NUMBER },
             communication_score: { type: Type.NUMBER },
+            confidence_score: { type: Type.NUMBER, description: "A score assessing the perceived confidence of the candidate out of 100." },
             strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
             improvements: {
               type: Type.ARRAY,
@@ -119,6 +121,7 @@ export const geminiService = {
             "content_score",
             "structure_score",
             "communication_score",
+            "confidence_score",
             "strengths",
             "improvements",
             "model_answer",

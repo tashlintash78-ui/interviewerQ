@@ -42,6 +42,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { 
   Radar, 
   RadarChart, 
@@ -85,6 +86,8 @@ export default function App() {
   const [pastSessions, setPastSessions] = useState<InterviewSession[]>([]);
   const [currentFeedback, setCurrentFeedback] = useState<Feedback | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showExitDialog, setShowExitDialog] = useState(false);
 
   useEffect(() => {
     setPastSessions(storageService.getSessions());
@@ -139,8 +142,10 @@ export default function App() {
       setShowFeedback(true);
       speak(feedback.interviewer_comment);
       setTranscript('');
+      setErrorMessage(null);
     } catch (error) {
       console.error("Analysis failed", error);
+      setErrorMessage("Failed to analyze your response. Please try again.");
     } finally {
       setIsAnalyzing(false);
     }
@@ -177,19 +182,22 @@ export default function App() {
         setPastSessions(storageService.getSessions());
 
         setState('summary');
+        setErrorMessage(null);
       } catch (error) {
         console.error("Summary generation failed", error);
+        setErrorMessage("Failed to generate summary. Please try again.");
       } finally {
         setIsAnalyzing(false);
       }
     }
   };
 
-  const handleFileUpload = async (e: any) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsAnalyzingCV(true);
+    setErrorMessage(null);
     try {
       let text = '';
       if (file.type === 'application/pdf') {
@@ -212,6 +220,7 @@ export default function App() {
       setCvFeedback(feedback);
     } catch (error) {
       console.error("CV Analysis failed", error);
+      setErrorMessage("Failed to analyze CV.");
     } finally {
       setIsAnalyzingCV(false);
     }
@@ -226,7 +235,7 @@ export default function App() {
     setState('summary');
   };
 
-  const deleteSession = (e: any, id: string) => {
+  const deleteSession = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     storageService.deleteSession(id);
     setPastSessions(storageService.getSessions());
@@ -234,15 +243,16 @@ export default function App() {
 
   const radarData = useMemo(() => {
     if (!summary) return [];
-    const avgContent = feedbacks.reduce((acc, f) => acc + f.content_score, 0) / feedbacks.length;
-    const avgStructure = feedbacks.reduce((acc, f) => acc + f.structure_score, 0) / feedbacks.length;
-    const avgComm = feedbacks.reduce((acc, f) => acc + f.communication_score, 0) / feedbacks.length;
+    const avgContent = feedbacks.reduce((acc, f) => acc + f.content_score, 0) / feedbacks.length || 0;
+    const avgStructure = feedbacks.reduce((acc, f) => acc + f.structure_score, 0) / feedbacks.length || 0;
+    const avgComm = feedbacks.reduce((acc, f) => acc + f.communication_score, 0) / feedbacks.length || 0;
+    const avgConf = feedbacks.reduce((acc, f) => acc + (f.confidence_score || 85), 0) / feedbacks.length || 0;
     
     return [
       { subject: 'Content', A: avgContent, fullMark: 100 },
       { subject: 'Structure', A: avgStructure, fullMark: 100 },
       { subject: 'Communication', A: avgComm, fullMark: 100 },
-      { subject: 'Confidence', A: 85, fullMark: 100 }, // Mock confidence for now
+      { subject: 'Confidence', A: avgConf, fullMark: 100 },
     ];
   }, [summary, feedbacks]);
 
@@ -660,24 +670,6 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <Label>Interviewer Style</Label>
-                  <div className="grid grid-cols-3 gap-3">
-                    {(['professional', 'tech', 'creative'] as const).map((char) => (
-                      <button
-                        key={char}
-                        onClick={() => setConfig({ ...config, character: char })}
-                        className={`p-3 rounded-xl border-2 transition-all text-xs font-bold capitalize ${
-                          config.character === char 
-                            ? 'border-primary bg-primary/5 text-primary' 
-                            : 'border-muted hover:border-primary/20'
-                        }`}
-                      >
-                        {char}
-                      </button>
-                    ))}
-                  </div>
-                </div>
 
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
@@ -726,6 +718,11 @@ export default function App() {
                       <Sparkles className="w-3 h-3" /> Analyzing your CV for improvements...
                     </div>
                   )}
+                  {errorMessage && state === 'setup' && (
+                    <div className="flex items-center gap-2 text-xs text-destructive">
+                      <AlertCircle className="w-3 h-3" /> {errorMessage}
+                    </div>
+                  )}
                 </div>
               </CardContent>
               <CardFooter className="bg-muted/30 border-t p-6">
@@ -751,11 +748,7 @@ export default function App() {
                   <Button 
                     variant="ghost" 
                     size="sm" 
-                    onClick={() => {
-                      if (confirm("Are you sure you want to exit the interview? Your progress will be lost.")) {
-                        setState('setup');
-                      }
-                    }}
+                    onClick={() => setShowExitDialog(true)}
                     className="rounded-full"
                   >
                     <ArrowLeft className="w-4 h-4 mr-2" /> Exit
@@ -945,6 +938,12 @@ export default function App() {
                             {isAnalyzing ? "Analyzing..." : "Submit Answer"}
                           </Button>
                         </div>
+                        {errorMessage && state === 'interview' && (
+                          <div className="w-full text-center p-3 bg-destructive/10 text-destructive text-sm font-medium rounded-xl border border-destructive/20 mt-4 flex items-center justify-center">
+                            <AlertCircle className="w-4 h-4 inline mr-2" />
+                            {errorMessage}
+                          </div>
+                        )}
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -1267,6 +1266,28 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <Dialog open={showExitDialog} onOpenChange={setShowExitDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Exit Interview?</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to exit the interview? All your current progress will be lost.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4 flex gap-2 sm:justify-end">
+            <Button variant="outline" onClick={() => setShowExitDialog(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={() => {
+              setShowExitDialog(false);
+              setState('setup');
+            }}>
+              Exit Interview
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
