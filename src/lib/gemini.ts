@@ -1,6 +1,17 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+let aiInstance: GoogleGenAI | null = null;
+
+function getAI() {
+  if (!aiInstance) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error("GEMINI_API_KEY is not defined. Please check your environment variables.");
+    }
+    aiInstance = new GoogleGenAI({ apiKey });
+  }
+  return aiInstance;
+}
 
 export interface Feedback {
   content_score: number;
@@ -32,6 +43,7 @@ export interface CVFeedback {
 
 export const geminiService = {
   async analyzeCV(cvText: string): Promise<CVFeedback> {
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `Analyze the following CV and provide constructive feedback for improvement. CV Text: ${cvText}`,
@@ -70,6 +82,7 @@ export const geminiService = {
     transcript: string,
     cvContext?: string
   ): Promise<Feedback> {
+    const ai = getAI();
     const contextPrompt = cvContext ? `\nCandidate Background (from CV): ${cvContext}` : "";
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -120,6 +133,7 @@ export const geminiService = {
     allFeedback: Feedback[],
     cvContext?: string
   ): Promise<SessionSummary> {
+    const ai = getAI();
     const contextPrompt = cvContext ? `\nCandidate Background (from CV): ${cvContext}` : "";
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",

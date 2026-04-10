@@ -17,7 +17,12 @@ import {
   Upload,
   Sparkles,
   UserCheck,
-  Shirt
+  Shirt,
+  LayoutGrid,
+  MessageSquare,
+  Target,
+  Zap,
+  ArrowLeft
 } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 
@@ -70,6 +75,13 @@ export default function App() {
   const [cvText, setCvText] = useState('');
   const [cvFeedback, setCvFeedback] = useState<CVFeedback | null>(null);
   const [isAnalyzingCV, setIsAnalyzingCV] = useState(false);
+  const [apiKeyMissing, setApiKeyMissing] = useState(false);
+
+  useEffect(() => {
+    if (!process.env.GEMINI_API_KEY) {
+      setApiKeyMissing(true);
+    }
+  }, []);
 
   const { 
     isListening, 
@@ -182,32 +194,168 @@ export default function App() {
     ];
   }, [summary, feedbacks]);
 
+  if (apiKeyMissing) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-background">
+        <Card className="max-w-md w-full border-2 border-destructive/20 shadow-2xl rounded-3xl overflow-hidden">
+          <CardHeader className="bg-destructive/5 border-b text-center p-8">
+            <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="w-8 h-8 text-destructive" />
+            </div>
+            <CardTitle className="text-2xl font-bold text-destructive">API Key Missing</CardTitle>
+            <CardDescription className="mt-2">
+              The Gemini API key is not configured. This is required for the AI features to work.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-8 space-y-4">
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              If you are seeing this on Vercel, please add <code className="bg-muted px-1.5 py-0.5 rounded font-mono text-xs">GEMINI_API_KEY</code> to your project's Environment Variables.
+            </p>
+            <div className="p-4 bg-muted/50 rounded-2xl border border-dashed text-xs space-y-2">
+              <p className="font-bold">How to fix:</p>
+              <ol className="list-decimal ml-4 space-y-1">
+                <li>Go to Vercel Project Settings</li>
+                <li>Select "Environment Variables"</li>
+                <li>Add key: <code className="font-mono">GEMINI_API_KEY</code></li>
+                <li>Add value: (Your key from Google AI Studio)</li>
+                <li>Redeploy your application</li>
+              </ol>
+            </div>
+          </CardContent>
+          <CardFooter className="bg-muted/30 border-t p-6">
+            <Button onClick={() => window.location.reload()} className="w-full rounded-xl">
+              I've added it, reload page
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/30">
       <AnimatePresence mode="wait">
         {state === 'landing' && (
           <motion.div
             key="landing"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="flex flex-col items-center justify-center min-h-screen p-6 text-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="min-h-screen flex flex-col"
           >
-            <div className="mb-8 p-4 bg-primary/10 rounded-2xl">
-              <BrainCircuit className="w-16 h-16 text-primary" />
-            </div>
-            <h1 className="text-5xl md:text-7xl font-bold tracking-tighter mb-4 bg-gradient-to-b from-foreground to-foreground/60 bg-clip-text text-transparent">
-              InterviewIQ
-            </h1>
-            <p className="text-xl text-muted-foreground max-w-2xl mb-12">
-              Master your next job interview with our AI-powered simulator. 
-              Get real-time feedback on your answers, structure, and communication.
-            </p>
-            <div className="flex gap-4">
-              <Button size="lg" onClick={() => setState('setup')} className="h-14 px-8 text-lg rounded-full">
-                Start Practice Session <ChevronRight className="ml-2 w-5 h-5" />
-              </Button>
-            </div>
+            {/* Hero Section */}
+            <section className="flex flex-col items-center justify-center pt-20 pb-16 px-6 text-center max-w-5xl mx-auto">
+              <motion.div 
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.5 }}
+                className="mb-8 p-4 bg-primary/10 rounded-3xl"
+              >
+                <BrainCircuit className="w-16 h-16 text-primary" />
+              </motion.div>
+              <motion.h1 
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.2 }}
+                className="text-6xl md:text-8xl font-bold tracking-tighter mb-6 bg-gradient-to-b from-foreground to-foreground/60 bg-clip-text text-transparent"
+              >
+                InterviewIQ
+              </motion.h1>
+              <motion.p 
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.3 }}
+                className="text-xl md:text-2xl text-muted-foreground max-w-3xl mb-10 leading-relaxed"
+              >
+                Master your next career move with our AI-powered simulator. 
+                Get personalized coaching, CV analysis, and real-time performance metrics.
+              </motion.p>
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.4 }}
+              >
+                <Button size="lg" onClick={() => setState('setup')} className="h-16 px-10 text-xl rounded-full shadow-2xl shadow-primary/20 hover:scale-105 transition-transform">
+                  Start Practicing Now <ChevronRight className="ml-2 w-6 h-6" />
+                </Button>
+              </motion.div>
+            </section>
+
+            {/* Features Grid */}
+            <section className="max-w-6xl mx-auto px-6 pb-24 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="p-8 rounded-3xl border-2 border-muted bg-card hover:border-primary/50 transition-colors group">
+                <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <Target className="w-6 h-6 text-primary" />
+                </div>
+                <h3 className="text-xl font-bold mb-3">Tailored Mock Interviews</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  Practice with questions specific to your target role and difficulty level. From Behavioral to Technical and Case studies.
+                </p>
+              </div>
+
+              <div className="p-8 rounded-3xl border-2 border-muted bg-card hover:border-primary/50 transition-colors group">
+                <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <FileText className="w-6 h-6 text-primary" />
+                </div>
+                <h3 className="text-xl font-bold mb-3">CV Analysis & Brief</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  Upload your CV to give the AI interviewer context about your background and receive actionable tips for resume improvement.
+                </p>
+              </div>
+
+              <div className="p-8 rounded-3xl border-2 border-muted bg-card hover:border-primary/50 transition-colors group">
+                <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <MessageSquare className="w-6 h-6 text-primary" />
+                </div>
+                <h3 className="text-xl font-bold mb-3">Dual Input Mode</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  Respond using high-accuracy voice-to-text or type your answers directly. Perfect for practicing in any environment.
+                </p>
+              </div>
+
+              <div className="p-8 rounded-3xl border-2 border-muted bg-card hover:border-primary/50 transition-colors group">
+                <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <UserCheck className="w-6 h-6 text-primary" />
+                </div>
+                <h3 className="text-xl font-bold mb-3">Professional Presence</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  Receive expert advice on how to carry yourself, body language, and the ideal dress code for your specific industry.
+                </p>
+              </div>
+
+              <div className="p-8 rounded-3xl border-2 border-muted bg-card hover:border-primary/50 transition-colors group">
+                <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <Sparkles className="w-6 h-6 text-primary" />
+                </div>
+                <h3 className="text-xl font-bold mb-3">Interactive AI Avatar</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  Engage with a reactive AI interviewer that blinks, speaks, and listens, creating a realistic face-to-face experience.
+                </p>
+              </div>
+
+              <div className="p-8 rounded-3xl border-2 border-muted bg-card hover:border-primary/50 transition-colors group">
+                <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <BarChart3 className="w-6 h-6 text-primary" />
+                </div>
+                <h3 className="text-xl font-bold mb-3">STAR Method Feedback</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  Get detailed analysis of your answers based on the STAR method, with specific suggestions for structure and content.
+                </p>
+              </div>
+            </section>
+
+            {/* Footer */}
+            <footer className="mt-auto py-12 border-t bg-muted/30">
+              <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
+                <div className="flex items-center gap-2 font-bold text-xl">
+                  <BrainCircuit className="w-6 h-6 text-primary" />
+                  <span>InterviewIQ</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  © 2026 InterviewIQ. Empowering your professional journey.
+                </p>
+              </div>
+            </footer>
           </motion.div>
         )}
 
@@ -220,12 +368,20 @@ export default function App() {
             className="flex items-center justify-center min-h-screen p-6"
           >
             <Card className="w-full max-w-xl border-2 shadow-2xl rounded-3xl overflow-hidden">
-              <CardHeader className="bg-primary/5 border-b">
-                <div className="flex items-center gap-3 mb-2">
+              <CardHeader className="bg-primary/5 border-b relative">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => setState('landing')}
+                  className="absolute left-4 top-4 rounded-full"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </Button>
+                <div className="flex items-center gap-3 mb-2 justify-center">
                   <Settings2 className="w-5 h-5 text-primary" />
                   <CardTitle>Session Configuration</CardTitle>
                 </div>
-                <CardDescription>Customize your mock interview experience</CardDescription>
+                <CardDescription className="text-center">Customize your mock interview experience</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6 pt-8">
                 <div className="space-y-2">
@@ -380,6 +536,19 @@ export default function App() {
             <div className="border-b bg-card/50 backdrop-blur-md sticky top-0 z-10">
               <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
                 <div className="flex items-center gap-4">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => {
+                      if (confirm("Are you sure you want to exit the interview? Your progress will be lost.")) {
+                        setState('setup');
+                      }
+                    }}
+                    className="rounded-full"
+                  >
+                    <ArrowLeft className="w-4 h-4 mr-2" /> Exit
+                  </Button>
+                  <Separator orientation="vertical" className="h-6" />
                   <Badge variant="outline" className="rounded-full px-3 py-1">
                     {config.type.toUpperCase()}
                   </Badge>
@@ -809,11 +978,11 @@ export default function App() {
 
 
             <div className="flex justify-center gap-4 pt-8">
-              <Button size="lg" variant="outline" onClick={() => setState('setup')} className="rounded-full px-8">
-                Practice Again
+              <Button size="lg" variant="outline" onClick={() => setState('landing')} className="rounded-full px-8">
+                <ArrowLeft className="w-4 h-4 mr-2" /> Back to Home
               </Button>
-              <Button size="lg" onClick={() => window.location.reload()} className="rounded-full px-8">
-                Back to Home
+              <Button size="lg" onClick={() => setState('setup')} className="rounded-full px-8">
+                Practice Again
               </Button>
             </div>
           </motion.div>
