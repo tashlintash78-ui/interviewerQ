@@ -1,0 +1,5 @@
+{
+  "name": "InterviewIQ",
+  "description": "AI-Powered Interview Practice Platform for realistic mock interviews with real-time feedback.",
+  "requestFramePermissions": ["microphone"]
+}
