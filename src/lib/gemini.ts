@@ -21,6 +21,7 @@ export interface Feedback {
   improvements: { issue: string; suggestion: string }[];
   model_answer: string;
   filler_words: string[];
+  interviewer_comment: string;
 }
 
 export interface SessionSummary {
@@ -88,7 +89,9 @@ export const geminiService = {
       model: "gemini-3-flash-preview",
       contents: `Interview Type: ${interviewType} Role: ${targetRole} Question: ${questionText} Candidate Answer (transcribed): ${transcript}${contextPrompt}`,
       config: {
-        systemInstruction: `You are an expert career coach and interview assessor. You evaluate job interview answers against professional hiring standards. If CV context is provided, use it to personalize the feedback (e.g., mention how their experience relates to the answer). Always return valid JSON only.`,
+        systemInstruction: `You are an expert career coach and interview assessor. You evaluate job interview answers against professional hiring standards. 
+        Provide a "counselling output" in the improvements section: instead of just pointing out flaws, provide supportive, actionable coaching on how to specifically rephrase or restructure their answer for maximum impact.
+        If CV context is provided, use it to personalize the feedback (e.g., mention how their experience relates to the answer). Always return valid JSON only.`,
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -110,6 +113,7 @@ export const geminiService = {
             },
             model_answer: { type: Type.STRING },
             filler_words: { type: Type.ARRAY, items: { type: Type.STRING } },
+            interviewer_comment: { type: Type.STRING, description: "A short, conversational comment (1-2 sentences) the interviewer says in response to the candidate's answer before moving to the next question." },
           },
           required: [
             "content_score",
@@ -119,6 +123,7 @@ export const geminiService = {
             "improvements",
             "model_answer",
             "filler_words",
+            "interviewer_comment",
           ],
         },
       },

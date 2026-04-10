@@ -14,25 +14,45 @@ export const Avatar = ({ isSpeaking, isListening, character = 'professional' }: 
     creative: { primary: '#f43f5e', secondary: '#9f1239', skin: '#f59e0b' },
   }[character];
 
+  // Idle head movement (sway and subtle nod)
+  const headAnimation = {
+    y: isSpeaking 
+      ? [0, -4, 0, -2, 0] 
+      : isListening 
+        ? [0, 1, 0] 
+        : [0, -1, 0, 1, 0], // Subtle idle sway
+    rotate: isSpeaking 
+      ? [0, -1, 1, 0] 
+      : isListening 
+        ? [0, 0.5, -0.5, 0] 
+        : [0, 0.5, 0, -0.5, 0],
+  };
+
   return (
     <div className="relative w-64 h-64 flex items-center justify-center">
       {/* Background Aura */}
       <motion.div
         animate={{
-          scale: isSpeaking ? [1, 1.15, 1] : 1,
-          opacity: isSpeaking ? [0.1, 0.3, 0.1] : 0.05,
+          scale: isSpeaking ? [1, 1.2, 1] : isListening ? [1, 1.05, 1] : 1,
+          opacity: isSpeaking ? [0.1, 0.4, 0.1] : isListening ? [0.05, 0.2, 0.05] : 0.05,
         }}
-        transition={{ repeat: Infinity, duration: 2 }}
+        transition={{ repeat: Infinity, duration: isSpeaking ? 1.5 : 3 }}
         className="absolute inset-0 rounded-full blur-3xl"
         style={{ backgroundColor: colors.primary }}
       />
 
       <svg viewBox="0 0 200 200" className="w-full h-full drop-shadow-2xl">
         {/* Shoulders/Torso */}
-        <path
+        <motion.path
           d="M40 190 Q100 140 160 190 L160 200 L40 200 Z"
           fill={colors.secondary}
           className="opacity-80"
+          animate={{
+            d: isSpeaking 
+              ? "M38 192 Q100 138 162 192 L162 200 L38 200 Z" 
+              : "M40 190 Q100 140 160 190 L160 200 L40 200 Z"
+          }}
+          transition={{ repeat: Infinity, duration: 2 }}
         />
         
         {/* Neck */}
@@ -40,10 +60,13 @@ export const Avatar = ({ isSpeaking, isListening, character = 'professional' }: 
 
         {/* Head Shape */}
         <motion.g
-          animate={{
-            y: isSpeaking ? [0, -2, 0] : 0,
+          animate={headAnimation}
+          transition={{ 
+            repeat: Infinity, 
+            duration: isSpeaking ? 0.4 : 4,
+            ease: "easeInOut"
           }}
-          transition={{ repeat: Infinity, duration: 0.5 }}
+          style={{ originX: "100px", originY: "140px" }}
         >
           <path
             d="M60 80 Q60 30 100 30 Q140 30 140 80 Q140 140 100 140 Q60 140 60 80"
@@ -54,37 +77,63 @@ export const Avatar = ({ isSpeaking, isListening, character = 'professional' }: 
 
           {/* Eyes */}
           <g className="eyes">
-            <motion.circle
-              cx="80" cy="75" r="4"
-              fill={colors.secondary}
-              animate={{ scaleY: [1, 0.1, 1] }}
-              transition={{ repeat: Infinity, duration: 4, times: [0, 0.05, 0.1] }}
-            />
-            <motion.circle
-              cx="120" cy="75" r="4"
-              fill={colors.secondary}
-              animate={{ scaleY: [1, 0.1, 1] }}
-              transition={{ repeat: Infinity, duration: 4, times: [0, 0.05, 0.1] }}
-            />
+            {/* Left Eye */}
+            <motion.g
+              animate={{
+                scaleY: [1, 1, 0.1, 1, 1], // Natural blink pattern
+              }}
+              transition={{
+                repeat: Infinity,
+                duration: 5,
+                times: [0, 0.4, 0.42, 0.44, 1],
+                ease: "easeInOut"
+              }}
+              style={{ originX: "80px", originY: "75px" }}
+            >
+              <circle cx="80" cy="75" r="4" fill={colors.secondary} />
+            </motion.g>
+
+            {/* Right Eye */}
+            <motion.g
+              animate={{
+                scaleY: [1, 1, 0.1, 1, 1],
+              }}
+              transition={{
+                repeat: Infinity,
+                duration: 5,
+                times: [0, 0.4, 0.42, 0.44, 1],
+                ease: "easeInOut"
+              }}
+              style={{ originX: "120px", originY: "75px" }}
+            >
+              <circle cx="120" cy="75" r="4" fill={colors.secondary} />
+            </motion.g>
           </g>
 
           {/* Mouth */}
           <motion.path
-            d={isSpeaking 
-              ? "M85 110 Q100 125 115 110" 
-              : "M85 115 Q100 115 115 115"}
             stroke={colors.primary}
             strokeWidth="3"
             strokeLinecap="round"
             fill="none"
             animate={isSpeaking ? {
               d: [
-                "M85 110 Q100 125 115 110",
-                "M85 115 Q100 105 115 115",
-                "M85 110 Q100 125 115 110"
-              ]
-            } : {}}
-            transition={{ repeat: Infinity, duration: 0.2 }}
+                "M85 115 Q100 115 115 115", // Closed
+                "M85 110 Q100 125 115 110", // Open wide
+                "M90 112 Q100 118 110 112", // Small talk
+                "M85 115 Q100 120 115 115", // Mid open
+                "M85 115 Q100 115 115 115"  // Closed
+              ],
+            } : isListening ? {
+              d: "M90 115 Q100 118 110 115" // Slight smile/attentive
+            } : {
+              d: "M85 115 Q100 115 115 115" // Neutral
+            }}
+            transition={{ 
+              repeat: isSpeaking ? Infinity : 0, 
+              duration: 0.15,
+              ease: "linear"
+            }}
           />
 
           {/* Listening Pulse (Cheeks) */}
@@ -93,14 +142,20 @@ export const Avatar = ({ isSpeaking, isListening, character = 'professional' }: 
               <motion.circle
                 cx="75" cy="95" r="3"
                 fill={colors.primary}
-                animate={{ opacity: [0.2, 0.6, 0.2] }}
-                transition={{ repeat: Infinity, duration: 1 }}
+                animate={{ 
+                  opacity: [0.2, 0.8, 0.2],
+                  scale: [1, 1.2, 1]
+                }}
+                transition={{ repeat: Infinity, duration: 0.8 }}
               />
               <motion.circle
                 cx="125" cy="95" r="3"
                 fill={colors.primary}
-                animate={{ opacity: [0.2, 0.6, 0.2] }}
-                transition={{ repeat: Infinity, duration: 1 }}
+                animate={{ 
+                  opacity: [0.2, 0.8, 0.2],
+                  scale: [1, 1.2, 1]
+                }}
+                transition={{ repeat: Infinity, duration: 0.8 }}
               />
             </g>
           )}

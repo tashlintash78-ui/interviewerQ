@@ -22,7 +22,11 @@ import {
   MessageSquare,
   Target,
   Zap,
-  ArrowLeft
+  ArrowLeft,
+  History,
+  Calendar,
+  Trash2,
+  Clock
 } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 
@@ -51,8 +55,10 @@ import { Avatar } from '@/components/Avatar';
 import { useVoice } from '@/hooks/useVoice';
 import { geminiService, Feedback, SessionSummary, CVFeedback } from '@/lib/gemini';
 import { INTERVIEW_TYPES, ROLES, DIFFICULTIES, QUESTION_BANK } from '@/constants';
+import { storageService } from '@/lib/storage';
+import { InterviewSession, InterviewConfig } from '@/types';
 
-type AppState = 'landing' | 'setup' | 'interview' | 'summary';
+type AppState = 'landing' | 'setup' | 'interview' | 'summary' | 'history';
 
 export default function App() {
   const [state, setState] = useState<AppState>('landing');
@@ -76,8 +82,12 @@ export default function App() {
   const [cvFeedback, setCvFeedback] = useState<CVFeedback | null>(null);
   const [isAnalyzingCV, setIsAnalyzingCV] = useState(false);
   const [apiKeyMissing, setApiKeyMissing] = useState(false);
+  const [pastSessions, setPastSessions] = useState<InterviewSession[]>([]);
+  const [currentFeedback, setCurrentFeedback] = useState<Feedback | null>(null);
+  const [showFeedback, setShowFeedback] = useState(false);
 
   useEffect(() => {
+    setPastSessions(storageService.getSessions());
     if (!process.env.GEMINI_API_KEY) {
       setApiKeyMissing(true);
     }
@@ -125,26 +135,53 @@ export default function App() {
         cvText || undefined
       );
       setFeedbacks([...feedbacks, feedback]);
+      setCurrentFeedback(feedback);
+      setShowFeedback(true);
+      speak(feedback.interviewer_comment);
       setTranscript('');
-
-      if (currentQuestionIndex < questions.length - 1) {
-        const nextIndex = currentQuestionIndex + 1;
-        setCurrentQuestionIndex(nextIndex);
-        speak(questions[nextIndex]);
-      } else {
-        const finalSummary = await geminiService.generateSummary(
-          config.type,
-          config.role,
-          [...feedbacks, feedback],
-          cvText || undefined
-        );
-        setSummary(finalSummary);
-        setState('summary');
-      }
     } catch (error) {
       console.error("Analysis failed", error);
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+
+  const proceedToNext = async () => {
+    setShowFeedback(false);
+    if (currentQuestionIndex < questions.length - 1) {
+      const nextIndex = currentQuestionIndex + 1;
+      setCurrentQuestionIndex(nextIndex);
+      speak(questions[nextIndex]);
+    } else {
+      setIsAnalyzing(true);
+      try {
+        const finalSummary = await geminiService.generateSummary(
+          config.type,
+          config.role,
+          feedbacks,
+          cvText || undefined
+        );
+        setSummary(finalSummary);
+
+        // Save session
+        const session: InterviewSession = {
+          id: Date.now().toString(),
+          date: new Date().toISOString(),
+          config: config as InterviewConfig,
+          questions,
+          feedbacks: feedbacks,
+          summary: finalSummary,
+          cvText: cvText || undefined
+        };
+        storageService.saveSession(session);
+        setPastSessions(storageService.getSessions());
+
+        setState('summary');
+      } catch (error) {
+        console.error("Summary generation failed", error);
+      } finally {
+        setIsAnalyzing(false);
+      }
     }
   };
 
@@ -178,6 +215,21 @@ export default function App() {
     } finally {
       setIsAnalyzingCV(false);
     }
+  };
+
+  const loadSession = (session: InterviewSession) => {
+    setConfig(session.config);
+    setQuestions(session.questions);
+    setFeedbacks(session.feedbacks);
+    setSummary(session.summary);
+    setCvText(session.cvText || '');
+    setState('summary');
+  };
+
+  const deleteSession = (e: any, id: string) => {
+    e.stopPropagation();
+    storageService.deleteSession(id);
+    setPastSessions(storageService.getSessions());
   };
 
   const radarData = useMemo(() => {
@@ -274,10 +326,16 @@ export default function App() {
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.4 }}
+                className="flex flex-col sm:flex-row gap-4"
               >
                 <Button size="lg" onClick={() => setState('setup')} className="h-16 px-10 text-xl rounded-full shadow-2xl shadow-primary/20 hover:scale-105 transition-transform">
                   Start Practicing Now <ChevronRight className="ml-2 w-6 h-6" />
                 </Button>
+                {pastSessions.length > 0 && (
+                  <Button size="lg" variant="outline" onClick={() => setState('history')} className="h-16 px-10 text-xl rounded-full border-2 hover:bg-muted/50 transition-all">
+                    <History className="ml-2 w-6 h-6 mr-2" /> View History
+                  </Button>
+                )}
               </motion.div>
             </section>
 
@@ -344,6 +402,62 @@ export default function App() {
               </div>
             </section>
 
+            {/* Recent History (if any) */}
+            {pastSessions.length > 0 && (
+              <section className="max-w-6xl mx-auto px-6 pb-24 w-full">
+                <div className="flex items-center justify-between mb-8">
+                  <h2 className="text-3xl font-bold tracking-tight">Recent Sessions</h2>
+                  <Button variant="ghost" onClick={() => setState('history')} className="rounded-full">
+                    View All History <ChevronRight className="ml-1 w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {pastSessions.slice(0, 3).map((session) => (
+                    <Card 
+                      key={session.id} 
+                      onClick={() => loadSession(session)}
+                      className="group cursor-pointer border-2 hover:border-primary/50 transition-all rounded-3xl overflow-hidden"
+                    >
+                      <CardHeader className="bg-muted/30 p-6">
+                        <div className="flex justify-between items-start mb-2">
+                          <Badge variant="secondary" className="rounded-full capitalize">
+                            {session.config.type}
+                          </Badge>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={(e) => deleteSession(e, session.id)}
+                            className="h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive transition-all"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                        <CardTitle className="text-lg line-clamp-1">{session.config.role}</CardTitle>
+                        <CardDescription className="flex items-center gap-2 mt-1">
+                          <Calendar className="w-3 h-3" />
+                          {new Date(session.date).toLocaleDateString()}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                              {session.summary.overall_score}
+                            </div>
+                            <span className="text-sm font-medium">Overall Score</span>
+                          </div>
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Clock className="w-3 h-3" />
+                            {session.questions.length} Qs
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {/* Footer */}
             <footer className="mt-auto py-12 border-t bg-muted/30">
               <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
@@ -356,6 +470,104 @@ export default function App() {
                 </p>
               </div>
             </footer>
+          </motion.div>
+        )}
+
+        {state === 'history' && (
+          <motion.div
+            key="history"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="min-h-screen flex flex-col p-6 max-w-5xl mx-auto w-full"
+          >
+            <div className="flex items-center gap-4 mb-12">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => setState('landing')}
+                className="rounded-full"
+              >
+                <ArrowLeft className="w-6 h-6" />
+              </Button>
+              <div>
+                <h1 className="text-4xl font-bold tracking-tight">Interview History</h1>
+                <p className="text-muted-foreground">Review your past performance and growth</p>
+              </div>
+            </div>
+
+            {pastSessions.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6">
+                <div className="p-6 bg-muted rounded-full">
+                  <History className="w-12 h-12 text-muted-foreground" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold">No sessions yet</h3>
+                  <p className="text-muted-foreground">Complete an interview to see your history here.</p>
+                </div>
+                <Button onClick={() => setState('setup')} className="rounded-full px-8">
+                  Start Your First Session
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {pastSessions.map((session) => (
+                  <Card 
+                    key={session.id} 
+                    onClick={() => loadSession(session)}
+                    className="group cursor-pointer border-2 hover:border-primary/50 transition-all rounded-3xl overflow-hidden"
+                  >
+                    <CardHeader className="bg-muted/30 p-6">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex gap-2">
+                          <Badge variant="secondary" className="rounded-full capitalize">
+                            {session.config.type}
+                          </Badge>
+                          <Badge variant="outline" className="rounded-full capitalize">
+                            {session.config.difficulty}
+                          </Badge>
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={(e) => deleteSession(e, session.id)}
+                          className="h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive transition-all"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      <CardTitle className="text-xl">{session.config.role}</CardTitle>
+                      <CardDescription className="flex items-center gap-2 mt-1">
+                        <Calendar className="w-3 h-3" />
+                        {new Date(session.date).toLocaleDateString()} at {new Date(session.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Score</p>
+                          <div className="flex items-center gap-2">
+                            <div className="text-2xl font-bold text-primary">{session.summary.overall_score}</div>
+                            <div className="text-xs text-muted-foreground">/ 100</div>
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Questions</p>
+                          <div className="text-2xl font-bold">{session.questions.length}</div>
+                        </div>
+                      </div>
+                      <div className="mt-6 flex flex-wrap gap-2">
+                        {session.summary.top_strengths.slice(0, 2).map((s, i) => (
+                          <Badge key={i} variant="secondary" className="bg-primary/5 text-primary border-none text-[10px] uppercase tracking-wider">
+                            {s}
+                          </Badge>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </motion.div>
         )}
 
@@ -585,90 +797,157 @@ export default function App() {
 
                 {/* Controls */}
                 <div className="flex flex-col items-center gap-4 w-full max-w-md">
-                  <div className="flex w-full justify-center mb-2">
-                    <div className="bg-muted/50 p-1 rounded-xl flex gap-1">
-                      <button
-                        onClick={() => setInputMode('voice')}
-                        className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                          inputMode === 'voice' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'
-                        }`}
+                  <AnimatePresence mode="wait">
+                    {showFeedback && currentFeedback ? (
+                      <motion.div
+                        key="feedback"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="w-full space-y-6"
                       >
-                        Voice
-                      </button>
-                      <button
-                        onClick={() => setInputMode('text')}
-                        className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                          inputMode === 'text' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'
-                        }`}
-                      >
-                        Text
-                      </button>
-                    </div>
-                  </div>
+                        <div className="p-6 bg-primary/5 border-2 border-primary/20 rounded-3xl relative overflow-hidden">
+                          <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
+                          <Quote className="w-8 h-8 text-primary/20 absolute -right-2 -top-2" />
+                          <p className="text-lg font-medium leading-relaxed">
+                            {currentFeedback.interviewer_comment}
+                          </p>
+                        </div>
 
-                  <div className="relative w-full">
-                    {inputMode === 'voice' ? (
-                      <div className="relative w-full h-32 bg-muted/30 rounded-2xl border-2 border-dashed flex items-center justify-center overflow-hidden">
-                        {transcript ? (
-                          <p className="p-4 text-center text-sm italic text-muted-foreground line-clamp-4">
-                            "{transcript}"
-                          </p>
-                        ) : (
-                          <p className="text-muted-foreground text-sm">
-                            {isListening ? "Listening to your response..." : "Click record to start answering"}
-                          </p>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div className="p-3 bg-muted/50 rounded-2xl text-center">
+                            <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Content</p>
+                            <p className="text-xl font-bold">{currentFeedback.content_score}%</p>
+                          </div>
+                          <div className="p-3 bg-muted/50 rounded-2xl text-center">
+                            <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Structure</p>
+                            <p className="text-xl font-bold">{currentFeedback.structure_score}%</p>
+                          </div>
+                          <div className="p-3 bg-muted/50 rounded-2xl text-center">
+                            <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Comm.</p>
+                            <p className="text-xl font-bold">{currentFeedback.communication_score}%</p>
+                          </div>
+                        </div>
+
+                        {currentFeedback.improvements.length > 0 && (
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-wider">
+                              <Sparkles className="w-3 h-3" /> Coaching Advice
+                            </div>
+                            <div className="space-y-2">
+                              {currentFeedback.improvements.map((imp, idx) => (
+                                <div key={idx} className="p-4 bg-muted/30 rounded-2xl border border-muted text-sm">
+                                  <p className="font-bold text-foreground mb-1">{imp.issue}</p>
+                                  <p className="text-muted-foreground leading-relaxed">{imp.suggestion}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                         )}
-                        {isListening && (
-                          <motion.div 
-                            className="absolute bottom-0 left-0 h-1 bg-primary"
-                            animate={{ width: ['0%', '100%'] }}
-                            transition={{ duration: 180, ease: "linear" }} // 3 min limit
-                          />
-                        )}
-                      </div>
+
+                        <Button 
+                          size="lg" 
+                          onClick={proceedToNext}
+                          className="w-full h-16 rounded-full shadow-xl text-lg"
+                        >
+                          {currentQuestionIndex === questions.length - 1 ? "See Final Results" : "Next Question"} <ChevronRight className="ml-2 w-5 h-5" />
+                        </Button>
+                      </motion.div>
                     ) : (
-                      <Textarea
-                        placeholder="Type your response here..."
-                        value={transcript}
-                        onChange={(e) => setTranscript(e.target.value)}
-                        className="min-h-[128px] rounded-2xl border-2 focus-visible:ring-primary resize-none p-4 text-sm leading-relaxed"
-                      />
-                    )}
-                  </div>
+                      <motion.div
+                        key="controls"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="w-full space-y-4"
+                      >
+                        <div className="flex w-full justify-center mb-2">
+                          <div className="bg-muted/50 p-1 rounded-xl flex gap-1">
+                            <button
+                              onClick={() => setInputMode('voice')}
+                              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                inputMode === 'voice' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'
+                              }`}
+                            >
+                              Voice
+                            </button>
+                            <button
+                              onClick={() => setInputMode('text')}
+                              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                inputMode === 'text' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'
+                              }`}
+                            >
+                              Text
+                            </button>
+                          </div>
+                        </div>
 
-                  <div className="flex gap-4 w-full">
-                    {inputMode === 'voice' && (
-                      <div className="flex gap-4">
-                        {!isListening ? (
+                        <div className="relative w-full">
+                          {inputMode === 'voice' ? (
+                            <div className="relative w-full h-32 bg-muted/30 rounded-2xl border-2 border-dashed flex items-center justify-center overflow-hidden">
+                              {transcript ? (
+                                <p className="p-4 text-center text-sm italic text-muted-foreground line-clamp-4">
+                                  "{transcript}"
+                                </p>
+                              ) : (
+                                <p className="text-muted-foreground text-sm">
+                                  {isListening ? "Listening to your response..." : "Click record to start answering"}
+                                </p>
+                              )}
+                              {isListening && (
+                                <motion.div 
+                                  className="absolute bottom-0 left-0 h-1 bg-primary"
+                                  animate={{ width: ['0%', '100%'] }}
+                                  transition={{ duration: 180, ease: "linear" }} // 3 min limit
+                                />
+                              )}
+                            </div>
+                          ) : (
+                            <Textarea
+                              placeholder="Type your response here..."
+                              value={transcript}
+                              onChange={(e) => setTranscript(e.target.value)}
+                              className="min-h-[128px] rounded-2xl border-2 focus-visible:ring-primary resize-none p-4 text-sm leading-relaxed"
+                            />
+                          )}
+                        </div>
+
+                        <div className="flex gap-4 w-full">
+                          {inputMode === 'voice' && (
+                            <div className="flex gap-4">
+                              {!isListening ? (
+                                <Button 
+                                  size="lg" 
+                                  onClick={startListening} 
+                                  className="h-16 w-16 rounded-full shadow-xl hover:scale-105 transition-transform"
+                                >
+                                  <Mic className="w-8 h-8" />
+                                </Button>
+                              ) : (
+                                <Button 
+                                  size="lg" 
+                                  variant="destructive" 
+                                  onClick={stopListening} 
+                                  className="h-16 w-16 rounded-full shadow-xl animate-pulse"
+                                >
+                                  <Square className="w-8 h-8" />
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                          
                           <Button 
                             size="lg" 
-                            onClick={startListening} 
-                            className="h-16 w-16 rounded-full shadow-xl hover:scale-105 transition-transform"
+                            disabled={!transcript.trim() || isListening || isAnalyzing} 
+                            onClick={handleNextQuestion}
+                            className={`h-16 rounded-full shadow-xl flex-1 ${inputMode === 'text' ? 'w-full' : ''}`}
                           >
-                            <Mic className="w-8 h-8" />
+                            {isAnalyzing ? "Analyzing..." : "Submit Answer"}
                           </Button>
-                        ) : (
-                          <Button 
-                            size="lg" 
-                            variant="destructive" 
-                            onClick={stopListening} 
-                            className="h-16 w-16 rounded-full shadow-xl animate-pulse"
-                          >
-                            <Square className="w-8 h-8" />
-                          </Button>
-                        )}
-                      </div>
+                        </div>
+                      </motion.div>
                     )}
-                    
-                    <Button 
-                      size="lg" 
-                      disabled={!transcript.trim() || isListening || isAnalyzing} 
-                      onClick={handleNextQuestion}
-                      className={`h-16 rounded-full shadow-xl flex-1 ${inputMode === 'text' ? 'w-full' : ''}`}
-                    >
-                      {isAnalyzing ? "Analyzing..." : (currentQuestionIndex === questions.length - 1 ? "Finish Interview" : "Submit Answer")}
-                    </Button>
-                  </div>
+                  </AnimatePresence>
                 </div>
               </div>
 
