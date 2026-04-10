@@ -798,7 +798,28 @@ export default function App() {
                 {/* Controls */}
                 <div className="flex flex-col items-center gap-4 w-full max-w-md">
                   <AnimatePresence mode="wait">
-                    {showFeedback && currentFeedback ? (
+                    {isAnalyzing ? (
+                      <motion.div
+                        key="analyzing"
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 1.05 }}
+                        className="w-full flex flex-col items-center justify-center p-12 space-y-6 bg-primary/5 rounded-3xl border-2 border-dashed border-primary/20"
+                      >
+                        <div className="relative">
+                          <BrainCircuit className="w-12 h-12 text-primary animate-pulse" />
+                          <motion.div 
+                            className="absolute -inset-4 rounded-full border-2 border-primary/20"
+                            animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
+                            transition={{ repeat: Infinity, duration: 2 }}
+                          />
+                        </div>
+                        <div className="text-center space-y-2">
+                          <p className="text-lg font-bold text-primary">Reflecting on your answer...</p>
+                          <p className="text-sm text-muted-foreground">The interviewer is actively listening and preparing coaching feedback.</p>
+                        </div>
+                      </motion.div>
+                    ) : showFeedback && currentFeedback ? (
                       <motion.div
                         key="feedback"
                         initial={{ opacity: 0, y: 10 }}
@@ -808,7 +829,9 @@ export default function App() {
                       >
                         <div className="p-6 bg-primary/5 border-2 border-primary/20 rounded-3xl relative overflow-hidden">
                           <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
-                          <Quote className="w-8 h-8 text-primary/20 absolute -right-2 -top-2" />
+                          <div className="flex items-center gap-2 mb-3 text-[10px] font-bold text-primary uppercase tracking-widest">
+                            <MessageSquare className="w-3 h-3" /> Interviewer's Response
+                          </div>
                           <p className="text-lg font-medium leading-relaxed">
                             {currentFeedback.interviewer_comment}
                           </p>
@@ -942,7 +965,7 @@ export default function App() {
                             onClick={handleNextQuestion}
                             className={`h-16 rounded-full shadow-xl flex-1 ${inputMode === 'text' ? 'w-full' : ''}`}
                           >
-                            {isAnalyzing ? "Analyzing..." : "Submit Answer"}
+                            Submit Answer
                           </Button>
                         </div>
                       </motion.div>
