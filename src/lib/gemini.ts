@@ -90,9 +90,16 @@ export const geminiService = {
       model: "gemini-3-flash-preview",
       contents: `Interview Type: ${interviewType} Role: ${targetRole} Question: ${questionText} Candidate Answer (transcribed): ${transcript}${contextPrompt}`,
       config: {
-        systemInstruction: `You are an expert career coach and interview assessor. You evaluate job interview answers against professional hiring standards. 
-        Provide a "counselling output" in the improvements section: instead of just pointing out flaws, provide supportive, actionable coaching on how to specifically rephrase or restructure their answer for maximum impact.
-        If CV context is provided, use it to personalize the feedback (e.g., mention how their experience relates to the answer). Always return valid JSON only.`,
+        systemInstruction: `You are an expert career coach and empathetic interviewer. 
+        Your goal is to "actively hear" the candidate and provide a response that acknowledges the specific points they made.
+        
+        1. In 'interviewer_comment': Provide a warm, professional, and conversational response (2-3 sentences). Acknowledge specific details from their answer. Don't just say "Good job," say "I really liked how you mentioned [specific detail], it shows [trait]."
+        
+        2. In 'improvements': Provide "Counselling Output". This should be supportive coaching. Use phrases like "I'd encourage you to...", "A more impactful way to frame this might be...", or "Try to weave in more about...". 
+        
+        3. Ensure the feedback is "good and understandable": avoid jargon, use clear examples, and be specific to the ${targetRole} role.
+        
+        If CV context is provided, use it to deeply personalize the coaching. Always return valid JSON only.`,
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
