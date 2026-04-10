@@ -4,9 +4,9 @@ let aiInstance: GoogleGenAI | null = null;
 
 function getAI() {
   if (!aiInstance) {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
     if (!apiKey) {
-      throw new Error("GEMINI_API_KEY is not defined. Please check your environment variables.");
+      throw new Error("GEMINI_API_KEY or VITE_GEMINI_API_KEY is not defined. Please check your environment variables.");
     }
     aiInstance = new GoogleGenAI({ apiKey });
   }
@@ -17,7 +17,6 @@ export interface Feedback {
   content_score: number;
   structure_score: number;
   communication_score: number;
-  confidence_score: number;
   strengths: string[];
   improvements: { issue: string; suggestion: string }[];
   model_answer: string;
@@ -107,7 +106,6 @@ export const geminiService = {
             content_score: { type: Type.NUMBER },
             structure_score: { type: Type.NUMBER },
             communication_score: { type: Type.NUMBER },
-            confidence_score: { type: Type.NUMBER, description: "A score assessing the perceived confidence of the candidate out of 100." },
             strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
             improvements: {
               type: Type.ARRAY,
@@ -128,7 +126,6 @@ export const geminiService = {
             "content_score",
             "structure_score",
             "communication_score",
-            "confidence_score",
             "strengths",
             "improvements",
             "model_answer",

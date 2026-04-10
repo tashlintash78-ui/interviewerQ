@@ -1,20 +1,51 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# InterviewIQ - AI Interview Simulator
 
-# Run and deploy your AI Studio app
+A professional AI-powered interview simulator built with React, Tailwind CSS, and the Google Gemini API.
 
-This contains everything you need to run your app locally.
+## Features
+- **Tailored Mock Interviews**: Role-specific practice (Behavioral, Technical, Case).
+- **CV Analysis**: Context-aware interviewing based on your resume.
+- **Dual Input Mode**: Switch between Voice and Text responses.
+- **Live Coaching**: Immediate counselling-style feedback after every answer.
+- **Interactive Avatar**: A reactive AI interviewer with lifelike animations.
 
-View your app in AI Studio: https://ai.studio/apps/0363e7c1-071a-471f-8953-5b23c71a2ac2
+## Deployment Instructions
 
-## Run Locally
+### 1. Get a Gemini API Key
+- Go to [Google AI Studio](https://aistudio.google.com/).
+- Create a new API Key.
 
-**Prerequisites:**  Node.js
+### 2. Set Up Environment Variables
+When deploying to platforms like **Vercel**, **Netlify**, or **GitHub Pages**, you must configure your API key.
 
+#### For Vercel/Netlify:
+Add an environment variable in your project settings:
+- **Key**: `VITE_GEMINI_API_KEY`
+- **Value**: `your_api_key_here`
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+#### For Local Development:
+Create a `.env` file in the root directory:
+```env
+VITE_GEMINI_API_KEY=your_api_key_here
+```
+
+### 3. Build and Deploy
+```bash
+npm install
+npm run build
+```
+The static files will be generated in the `dist/` folder.
+
+## GitHub Pages Note
+If you are deploying to GitHub Pages at a sub-path (e.g., `https://username.github.io/repo-name/`), you may need to update the `base` property in `vite.config.ts`.
+
+```typescript
+// vite.config.ts
+export default defineConfig({
+  base: '/repo-name/',
+  // ... rest of config
+})
+```
+
+## License
+MIT
